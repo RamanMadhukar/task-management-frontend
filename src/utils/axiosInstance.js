@@ -1,29 +1,35 @@
-import axios from 'axios';
+import axios from 'axios'
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
     withCredentials: true,
-    timeout: 10000,
-});
+    timeout: 15000,
+})
 
-let store;
-export const injectStore = (_store) => { store = _store; };
+let store
 
-api.interceptors.request.use((config) => {
-    const token = store?.getState()?.auth?.token;
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-});
+export const injectStore = (_store) => {
+    store = _store
+}
+
+api.interceptors.request.use(
+    (config) => {
+        const token = store?.getState()?.auth?.token
+        if (token) config.headers.Authorization = `Bearer ${token}`
+        return config
+    },
+    (error) => Promise.reject(error)
+)
 
 api.interceptors.response.use(
     (res) => res,
     (error) => {
         if (error.response?.status === 401) {
-            store?.dispatch({ type: 'auth/logout' });
-            window.location.href = '/login';
+            store?.dispatch({ type: 'auth/logout' })
+            window.location.href = '/login'
         }
-        return Promise.reject(error);
+        return Promise.reject(error)
     }
-);
+)
 
-export default api;
+export default api

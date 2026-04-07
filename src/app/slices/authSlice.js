@@ -1,54 +1,90 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../utils/axiosInstance';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import api from '../../utils/axiosInstance'
 
 export const loginUser = createAsyncThunk('auth/login', async (creds, { rejectWithValue }) => {
     try {
-        const { data } = await api.post('/auth/login', creds);
-        localStorage.setItem('token', data.token);
-        return data;
+        const { data } = await api.post('/auth/login', creds)
+        localStorage.setItem('tm_token', data.token)
+        return data
     } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Login failed');
+        return rejectWithValue(err.response?.data?.message || 'Login failed')
     }
-});
+})
 
 export const registerUser = createAsyncThunk('auth/register', async (creds, { rejectWithValue }) => {
     try {
-        const { data } = await api.post('/auth/register', creds);
-        localStorage.setItem('token', data.token);
-        return data;
+        const { data } = await api.post('/auth/register', creds)
+        localStorage.setItem('tm_token', data.token)
+        return data
     } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Registration failed');
+        return rejectWithValue(err.response?.data?.message || 'Registration failed')
     }
-});
+})
+
+export const fetchMe = createAsyncThunk('auth/me', async (_, { rejectWithValue }) => {
+    try {
+        const { data } = await api.get('/auth/me')
+        return data
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.message)
+    }
+})
 
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
         user: null,
-        token: localStorage.getItem('token'),
+        token: localStorage.getItem('tm_token'),
         loading: false,
         error: null,
+        initialized: false,
     },
     reducers: {
         logout: (state) => {
-            state.user = null; state.token = null;
-            localStorage.removeItem('token');
+            state.user = null
+            state.token = null
+            state.initialized = true
+            localStorage.removeItem('tm_token')
         },
-        clearError: (state) => { state.error = null; },
+        clearError: (state) => { state.error = null },
     },
     extraReducers: (builder) => {
-        builder
-            .addMatcher((action) => action.type.endsWith('/pending'), (state) => {
-                state.loading = true; state.error = null;
-            })
-            .addMatcher((action) => action.type.endsWith('/fulfilled'), (state, action) => {
-                state.loading = false; state.user = action.payload.user; state.token = action.payload.token;
-            })
-            .addMatcher((action) => action.type.endsWith('/rejected'), (state, action) => {
-                state.loading = false; state.error = action.payload;
-            });
-    },
-});
+        const pending = (state) => { state.loading = true; state.error = null }
+        const rejected = (state, { payload }) => { state.loading = false; state.error = payload }
 
-export const { logout, clearError } = authSlice.actions;
-export default authSlice.reducer;
+        builder
+            .addCase(loginUser.pending, pending)
+            .addCase(loginUser.fulfilled, (state, { payload }) => {
+                state.loading = false
+                state.user = payload.user
+                state.token = payload.token
+                state.initialized = true
+            })
+            .addCase(loginUser.rejected, rejected)
+
+            .addCase(registerUser.pending, pending)
+            .addCase(registerUser.fulfilled, (state, { payload }) => {
+                state.loading = false
+                state.user = payload.user
+                state.token = payload.token
+                state.initialized = true
+            })
+            .addCase(registerUser.rejected, rejected)
+
+            .addCase(fetchMe.pending, pending)
+            .addCase(fetchMe.fulfilled, (state, { payload }) => {
+                state.loading = false
+                state.user = payload.user
+                state.initialized = true
+            })
+            .addCase(fetchMe.rejected, (state) => {
+                state.loading = false
+                state.token = null
+                state.initialized = true
+                localStorage.removeItem('tm_token')
+            })
+    },
+})
+
+export const { logout, clearError } = authSlice.actions
+export default authSlice.reducer
